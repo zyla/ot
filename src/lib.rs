@@ -1,3 +1,5 @@
+use std::cmp::Ordering::*;
+
 #[derive(Eq, PartialEq, Debug, Clone)]
 pub enum Op {
     Insert(usize, u8),
@@ -45,18 +47,12 @@ pub fn transform(op1: &Op, op2: &Op, side: Side) -> Op {
     match *op1 {
         Insert(index, c) => {
             let new_index = match *op2 {
-                Insert(index2, _) => {
-                    if index2 < index {
-                        index + 1
-                    } else if index == index2 {
-                        match side {
-                            Left => index,
-                            Right => index + 1,
-                        }
-                    } else {
-                        index
-                    }
-                }
+                Insert(index2, _) => match (index2.cmp(&index), side) {
+                    (Less, _) => index + 1,
+                    (Equal, Left) => index,
+                    (Equal, Right) => index + 1,
+                    (Greater, _) => index,
+                },
                 Delete(index2) => {
                     if index2 < index {
                         index - 1
@@ -78,13 +74,13 @@ pub fn transform(op1: &Op, op2: &Op, side: Side) -> Op {
                     }
                 }
                 Delete(index2) => {
-                    if index2 < index {
-                        index - 1
-                    } else if index2 == index {
-                        // Both ops deleted the same character
-                        return Noop;
-                    } else {
-                        index
+                    match index2.cmp(&index) {
+                        Less => index - 1,
+                        Equal => {
+                            // Both ops deleted the same character
+                            return Noop;
+                        }
+                        Greater => index,
                     }
                 }
                 Noop => index,
