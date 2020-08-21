@@ -1,27 +1,27 @@
-#![allow(dead_code)]
-
-#[cfg(test)]
-#[macro_use]
-extern crate proptest;
-
 #[derive(Eq, PartialEq, Debug, Clone)]
-enum Op {
+pub enum Op {
     Insert(usize, u8),
+    Delete(usize),
+    Noop,
 }
 use Op::*;
 
-type Doc = Vec<u8>;
+pub type Doc = Vec<u8>;
 
-fn apply(doc: &mut Doc, op: &Op) {
+pub fn apply(doc: &mut Doc, op: &Op) {
     match *op {
         Insert(index, c) => {
             doc.insert(index, c);
         }
+        Delete(index) => {
+            doc.remove(index);
+        }
+        Noop => {}
     }
 }
 
 #[derive(PartialEq, Eq, Debug)]
-enum Side {
+pub enum Side {
     Left,
     Right,
 }
@@ -41,11 +41,11 @@ use Side::*;
 /// ```no_run
 /// { apply(doc, op2); apply(doc, transform(op1, op2, Left)); }
 /// ```
-fn transform(op1: &Op, op2: &Op, side: Side) -> Op {
+pub fn transform(op1: &Op, op2: &Op, side: Side) -> Op {
     match *op1 {
         Insert(index, c) => {
             let new_index = match *op2 {
-                Insert(index2, c2) => {
+                Insert(index2, _) => {
                     if index2 < index {
                         index + 1
                     } else if index == index2 {
@@ -57,9 +57,41 @@ fn transform(op1: &Op, op2: &Op, side: Side) -> Op {
                         index
                     }
                 }
+                Delete(index2) => {
+                    if index2 < index {
+                        index - 1
+                    } else {
+                        index
+                    }
+                }
+                Noop => index,
             };
             Insert(new_index, c)
         }
+        Delete(index) => {
+            let new_index = match *op2 {
+                Insert(index2, _) => {
+                    if index2 <= index {
+                        index + 1
+                    } else {
+                        index
+                    }
+                }
+                Delete(index2) => {
+                    if index2 < index {
+                        index - 1
+                    } else if index2 == index {
+                        // Both ops deleted the same character
+                        return Noop;
+                    } else {
+                        index
+                    }
+                }
+                Noop => index,
+            };
+            Delete(new_index)
+        }
+        Noop => Noop,
     }
 }
 
@@ -68,16 +100,26 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_apply() {
+    fn test_apply_insert() {
         let mut doc = b"abc".to_vec();
         apply(&mut doc, &Insert(1, b'x'));
         assert_eq!(doc, b"axbc");
     }
 
+    #[test]
+    fn test_apply_delete() {
+        let mut doc = b"abc".to_vec();
+        apply(&mut doc, &Delete(1));
+        assert_eq!(doc, b"ac");
+    }
+
     use proptest::prelude::*;
 
     fn valid_op_for(doc: &Doc) -> impl Strategy<Value = Op> {
-        (0..=doc.len(), any::<u8>()).prop_map(|(index, c)| Insert(index, c))
+        prop_oneof![
+            1 => (0..=doc.len(), any::<u8>()).prop_map(|(index, c)| Insert(index, c)),
+            (doc.len() > 0) as u32 => (0..doc.len()).prop_map(|index| Delete(index)),
+        ]
     }
 
     fn doc_and_two_valid_ops() -> impl Strategy<Value = (Doc, Op, Op)> {
