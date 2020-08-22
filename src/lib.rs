@@ -35,12 +35,12 @@ use Side::*;
 ///
 /// Satisfies TP1:
 ///
-/// ```no_run
+/// ```ignore
 /// { apply(doc, op1); apply(doc, transform(op2, op1, Right)); }
 /// ```
 /// is equivalent to
 ///
-/// ```no_run
+/// ```ignore
 /// { apply(doc, op2); apply(doc, transform(op1, op2, Left)); }
 /// ```
 pub fn transform(op1: &Op, op2: &Op, side: Side) -> Op {
