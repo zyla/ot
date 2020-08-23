@@ -125,6 +125,13 @@ mod tests {
         })
     }
 
+    fn doc_and_3_valid_ops() -> impl Strategy<Value = (Doc, Op, Op, Op)> {
+        any::<Doc>().prop_flat_map(|doc| {
+            (valid_op_for(&doc), valid_op_for(&doc), valid_op_for(&doc))
+                .prop_map(move |(op1, op2, op3)| (doc.clone(), op1, op2, op3))
+        })
+    }
+
     proptest! {
         #[test]
         fn transform_property_1((doc, op1, op2) in doc_and_two_valid_ops()) {
@@ -139,6 +146,33 @@ mod tests {
             apply(&mut doc2, &transformed_op1);
 
             prop_assert_eq!(doc1, doc2, "\ntransformed_op1 = {:?},\ntransformed_op2 = {:?}\n", transformed_op1, transformed_op2);
+        }
+
+        #[test]
+        #[ignore = "Turns out we don't actually satisfy TP2."]
+        fn transform_property_2((doc, op1, op2, op3) in doc_and_3_valid_ops()) {
+            let mut doc1 = doc.clone();
+            let transformed_op2 = transform(&op2, &op1, Right);
+            apply(&mut doc1, &op1);
+            apply(&mut doc1, &transformed_op2);
+
+            let mut doc2 = doc.clone();
+            let transformed_op1 = transform(&op1, &op2, Left);
+            apply(&mut doc2, &op2);
+            apply(&mut doc2, &transformed_op1);
+
+            let op3_transformed_by_1_2 = transform(&transform(&op3, &op1, Right), &transformed_op2, Right);
+            apply(&mut doc1, &op3_transformed_by_1_2);
+            let op3_transformed_by_2_1 = transform(&transform(&op3, &op2, Right), &transformed_op1, Right);
+            apply(&mut doc2, &op3_transformed_by_2_1);
+
+            prop_assert_eq!(
+                doc1,
+                doc2,
+                "\nops1 = {:?}\nops2 = {:?}\n",
+                &[op1, transformed_op2, op3_transformed_by_1_2],
+                &[op2, transformed_op1, op3_transformed_by_2_1],
+            );
         }
     }
 }
