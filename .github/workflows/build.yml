@@ -9,7 +9,7 @@ env:
 
 jobs:
   lint:
-    name: fmt
+    name: lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -31,4 +31,4 @@ jobs:
         run: cargo check --color always --all --all-targets
 
       - name: Run cargo test
-        run: cargo test --color always --all
+        run: PROPTEST_CASES=10000 cargo test --color always --all
