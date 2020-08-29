@@ -2,7 +2,7 @@ use std::cmp::Ordering::*;
 
 #[derive(Eq, PartialEq, Debug, Clone)]
 pub enum Op {
-    Insert(usize, u8),
+    Insert(usize, usize, u8),
     Delete(usize),
     Noop,
 }
@@ -12,7 +12,7 @@ pub type Doc = Vec<u8>;
 
 pub fn apply(doc: &mut Doc, op: &Op) {
     match *op {
-        Insert(index, c) => {
+        Insert(index, _, c) => {
             doc.insert(index, c);
         }
         Delete(index) => {
@@ -45,9 +45,10 @@ use Side::*;
 /// ```
 pub fn transform(op1: &Op, op2: &Op, side: Side) -> Op {
     match *op1 {
-        Insert(index, c) => {
+        Insert(index, num_deletes, c) => {
+            let mut num_deletes = num_deletes;
             let new_index = match *op2 {
-                Insert(index2, _) => match (index2.cmp(&index), side) {
+                Insert(index2, num_deletes_2, _) => match ((index2 + num_deletes_2).cmp(&(index + num_deletes)), side) {
                     (Less, _) => index + 1,
                     (Equal, Left) => index,
                     (Equal, Right) => index + 1,
@@ -55,6 +56,7 @@ pub fn transform(op1: &Op, op2: &Op, side: Side) -> Op {
                 },
                 Delete(index2) => {
                     if index2 < index {
+                        num_deletes += 1;
                         index - 1
                     } else {
                         index
@@ -62,11 +64,11 @@ pub fn transform(op1: &Op, op2: &Op, side: Side) -> Op {
                 }
                 Noop => index,
             };
-            Insert(new_index, c)
+            Insert(new_index, num_deletes, c)
         }
         Delete(index) => {
             let new_index = match *op2 {
-                Insert(index2, _) => {
+                Insert(index2, _, _) => {
                     if index2 <= index {
                         index + 1
                     } else {
@@ -98,7 +100,7 @@ mod tests {
     #[test]
     fn test_apply_insert() {
         let mut doc = b"abc".to_vec();
-        apply(&mut doc, &Insert(1, b'x'));
+        apply(&mut doc, &Insert(1, 0, b'x'));
         assert_eq!(doc, b"axbc");
     }
 
@@ -113,7 +115,14 @@ mod tests {
 
     fn valid_op_for(doc: &Doc) -> impl Strategy<Value = Op> {
         prop_oneof![
-            1 => (0..=doc.len(), any::<u8>()).prop_map(|(index, c)| Insert(index, c)),
+            // Note: we always generate 0 for num_deletes. The reasoning is: if two operations are
+            // made against the same document, they should be affected by the same deletes, I
+            // guess?
+            //
+            // But this could possibly break in the more general case, where we can generate new
+            // operations from arbitrary fork points. We _could_ give them proper num_deletes, but
+            // that would actually require tombstones...
+            1 => (0..=doc.len(), any::<u8>()).prop_map(|(index, c)| Insert(index, 0, c)),
             (doc.len() > 0) as u32 => (0..doc.len()).prop_map(|index| Delete(index)),
         ]
     }
@@ -149,7 +158,6 @@ mod tests {
         }
 
         #[test]
-        #[ignore = "Turns out we don't actually satisfy TP2."]
         fn transform_property_2((doc, op1, op2, op3) in doc_and_3_valid_ops()) {
             let mut doc1 = doc.clone();
             let transformed_op2 = transform(&op2, &op1, Right);

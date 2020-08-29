@@ -6,3 +6,4 @@
 # everyone who runs the test benefits from these saved cases.
 cc 9f9fd9724657126480deaae43e380013250d685f3c3f53c37e38d876ec590951 # shrinks to (doc, op1, op2, op3) = ([0], Delete(0), Insert(1, 42), Insert(0, 0))
 cc 050fc4f2e837e70976a3d0324e9ce54611dcd30c73d7a9757c426d633b75d0bb # shrinks to (doc, op1, op2, op3) = ([0], Delete(0), Insert(0, 0), Insert(1, 1))
+cc 847678a7bc3b08649b8693abf4c1ebfe630403e0437365d0a360e3193da387d2 # shrinks to (doc, op1, op2) = ([250, 115, 116, 120, 182, 56, 95, 233, 118, 8, 183, 173, 179, 130, 191, 82, 63, 94, 95, 36, 49, 131], Insert(4, 0, 0), Insert(0, 47067176240355661, 194))
