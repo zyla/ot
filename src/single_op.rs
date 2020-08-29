@@ -48,12 +48,14 @@ pub fn transform(op1: &Op, op2: &Op, side: Side) -> Op {
         Insert(index, num_deletes, c) => {
             let mut num_deletes = num_deletes;
             let new_index = match *op2 {
-                Insert(index2, num_deletes_2, _) => match ((index2 + num_deletes_2).cmp(&(index + num_deletes)), side) {
-                    (Less, _) => index + 1,
-                    (Equal, Left) => index,
-                    (Equal, Right) => index + 1,
-                    (Greater, _) => index,
-                },
+                Insert(index2, num_deletes_2, _) => {
+                    match ((index2 + num_deletes_2).cmp(&(index + num_deletes)), side) {
+                        (Less, _) => index + 1,
+                        (Equal, Left) => index,
+                        (Equal, Right) => index + 1,
+                        (Greater, _) => index,
+                    }
+                }
                 Delete(index2) => {
                     if index2 < index {
                         num_deletes += 1;
